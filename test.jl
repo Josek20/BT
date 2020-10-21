@@ -44,10 +44,9 @@ function sgd(train_data,epochs,mini_batch_size,eta,w_and_b,test_data=0)#,test_la
 	for epoch=1:epochs
 		n = length(train_data)
 		#println([0:mini_batch_size:n])
-		#mini_batches = map(x->train_data[x+1:x+mini_batch_size],[0:mini_batch_size:n])
-
+		mini_batches = batch(train_data,mini_batch_size)
 	
-		new_bt = map(min_bt->updating_mini_batch(train_data[min_bt+1:min_bt+mini_batch_size,:],eta,w_and_b),[0:mini_batch_size:n])	
+		new_bt = map(min_bt->updating_mini_batch(min_bt,eta,w_and_b),mini_batches)	
 		println("ok")
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data),"/",n_test)
@@ -58,42 +57,45 @@ function sgd(train_data,epochs,mini_batch_size,eta,w_and_b,test_data=0)#,test_la
 end
 
 
-function batch(x,bath_size)
-
+function batch(x,bach_size)
+	tmp = []
+	for i=0:bach_size:(length(x)-bach_size)
+		push!(tmp,x[i+1:i+bach_size])#updating_mini_batch(x[i+1:i+bach_size],eta,w_and_b)
+	end
+	return tmp
 end
 
 
-
-function updating_mini_batch(mini_batch,eta,w_and_b,)
+function updating_mini_batch(mini_batch,eta,w_and_b)
 	#updating 'w' and 'b' 
 	noble_b = map(x->zeros(1,length(x)),w_and_b.b) 
 	noble_w = map(x->zeros(1,length(x)),w_and_b.w)
 
 	for i=1:length(mini_batch)
-		delta_b,delta_w = backprop(minibatch[i][0],minibatch[i][1],w_and_b)
+		delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],w_and_b)
 		nabla_b = map((n_b,d_b)->n_b+d_b,noble_b,delta_b)
 		nabla_w = map((n_w,d_w)->n_w+d_w,noble_w,delta_w)
 		w_and_b.w = map((w,n_w)->w-(eta/length(mini_batch))*n_w,w_and_b.w,nable_w)
 		w_and_b.b = map((b,n_b)->b-(eta/length(mini_batch))*n_b,w_and_b.b,nable_b)
 	end
-	return 1
+	#return 1
 end
 
-function backprop(x,y,w_and_b,num_layers)
+function backprop(x,y,w_and_b,num_layers=3)
 	noble_b = map(x->zeros(1,length(x)),w_and_b.b) 
 	noble_w = map(x->zeros(1,length(x)),w_and_b.w)
-	activation = x
-	activations = [x]
+	activation = reshape(x,784)
+	activations = [reshape(x,784)]
 	zs = []
 	for i=1:length(w_and_b.w)
-		z = w*activation + w_and_b.b[i]
-		zs[i] = z
+		z = dot(w_and_b.w[i],activation) + w_and_b.b[i]
+		push!(zs,z)
 		activation = sigmoid(z)
-		activasions[i+1] = activation
+		push!(activations,activation)
 	end
 	delta = cost_derivative(activations[length(activations)],y)*sigmoid_prime(zs[length(zs)])
 	nabla_b[length(nabla_b)] = delta
-	nabla_w[length(nabla_b)] = delta*transpose(activations[length(activations)-1])
+	nabla_w[length(nabla_b)] = dot(delta,transpose(activations[length(activations)-1]))
 
 	for i = 3:num_layers
 		z = zs[length(zs)-i]
@@ -127,10 +129,10 @@ function evaluate(test_data,w_and_b)
 	return cumsum(map((x,y)->x==y,test_result),dims=1)[length(map((x,y)->x==y,test_result))]
 end
 
-function mapping(sample,label)
+function zipping(sample,label)
 	a = []
 	for i=1:length(label)
-		push!(a,(sample[i,:],label[i]))	
+		push!(a,(sample[:,:,i],label[i]))	
 	end
 	return a
 end
@@ -152,19 +154,21 @@ test_x,test_y = MNIST.testdata()
 
 println("<============================>")
 println()
-
-
+#println(zipping(training_x,train_y)[1])
+tmp = zipping(training_x,train_y)
 
 #p = MNIST.traintensor(Float32)#MNIST.convert2features(MNIST.traintensor())
 #@view p
 #println(typeof(reshape(training_x,60000,784)))
-#println(length(train_y))
-#println(length(reshape(training_x,length(train_y),784)[1,:]))
 
-#println(length(mapping(reshape(training_x,length(train_y),784),train_y)))
-#println(map([x,y],reshape(training_x,length(train_y),784),train_y))
 
-sgd(mapping(reshape(training_x,784,length(train_y)),train_y),30,10,w_and_b,mapping(reshape(test_x,784,length(test_y)),test_y))
+
+
+
+
+#sgd(mapping(reshape(training_x,784,length(train_y)),train_y),30,10,3.0,w_and_b,mapping(reshape(test_x,784,length(test_y)),test_y))
+
+sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
 
 
 
