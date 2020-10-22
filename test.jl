@@ -7,9 +7,9 @@ using MLDatasets
 
 #https://github.com/nmheim/NeuralNetworks
 
-struct Layer
-	w
+struct W
 	b
+	w
 end
 
 struct Network
@@ -85,21 +85,28 @@ function backprop(x,y,w_and_b,num_layers=3)
 	noble_b = map(x->zeros(1,length(x)),w_and_b.b) 
 	noble_w = map(x->zeros(1,length(x)),w_and_b.w)
 	activation = reshape(x,784)
-	activations = [reshape(x,784)]
+	activations =[] #[reshape(x,784)]
 	zs = []
 	for i=1:length(w_and_b.w)
-		z = dot(w_and_b.w[i],activation) + w_and_b.b[i]
+		
+		# DimensionMismatch
+		#z = dot(w_and_b.w[i][:,:],activation) + w_and_b.b[i]
+		######################
+		z = sum(w_and_b.w[i][:,:]*reshape(activation,784) + w_and_b.b[i])
 		push!(zs,z)
-		activation = sigmoid(z)
+		activation = sigma(z)
+
 		push!(activations,activation)
+		
+		println("ok")
 	end
-	delta = cost_derivative(activations[length(activations)],y)*sigmoid_prime(zs[length(zs)])
+	delta = cost_derivative(activations[length(activations)],y)*sigma_prime(zs[length(zs)])
 	nabla_b[length(nabla_b)] = delta
 	nabla_w[length(nabla_b)] = dot(delta,transpose(activations[length(activations)-1]))
 
 	for i = 3:num_layers
 		z = zs[length(zs)-i]
-		sp = sigmoid_prime(z)
+		sp = sigma_prime(z)
 		delta = (transpose(w_and_b.w[length(w_and_b.w)-i+1]*delta))*sp
 		nabla_b[length(nabla_b)-i] = delta
 		nabla_w[length(nabla_w)-i] = delta*transpose(activations[length(activations)-i-1])
@@ -140,8 +147,9 @@ end
 #Initiating NN
 
 size = [784,30,10]
-w_and_b = W(map(x->rand(Float64,(x,1)),size[2:length(size)]),map((x,y)->rand(Float64,(x,y)),size[2:length(size)],size[length(size)]))
-
+w_and_b = W(map(x->rand(Float64,x),size[2:length(size)]),map((x,y)->rand(Float64,(x,y)),size[2:length(size)],size[1:length(size)-1]))
+#new_tmp = map(x->rand(Float64,x),size[2:length(size)][1])
+#println()
 #eachcol
 
 #net = Network(size,length(size),w_and_b)
@@ -153,9 +161,9 @@ test_x,test_y = MNIST.testdata()
 
 
 println("<============================>")
-println()
+#println()
 #println(zipping(training_x,train_y)[1])
-tmp = zipping(training_x,train_y)
+#tmp = zipping(training_x,train_y)
 
 #p = MNIST.traintensor(Float32)#MNIST.convert2features(MNIST.traintensor())
 #@view p
