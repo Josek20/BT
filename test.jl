@@ -7,7 +7,7 @@ using MLDatasets
 
 #https://github.com/nmheim/NeuralNetworks
 
-struct W
+struct Layer
 	b
 	w
 end
@@ -16,6 +16,16 @@ struct Network
 	sizes	
 	num_layers
 	w_and_b
+end
+
+function Layer(in::Int,out::Int)
+	w = rand(in,out)
+	b = rand(out,1)
+	Layer(b,w)
+end
+
+function (l::Layer)(x::Vector)
+	sigma(l.w*x+b)	
 end
 
 #learning_rate = 1
@@ -147,7 +157,7 @@ end
 #Initiating NN
 
 size = [784,30,10]
-w_and_b = W(map(x->rand(Float64,x),size[2:length(size)]),map((x,y)->rand(Float64,(x,y)),size[2:length(size)],size[1:length(size)-1]))
+w_and_b = Layer(map(x->rand(Float64,x),size[2:length(size)]),map((x,y)->rand(Float64,(x,y)),size[2:length(size)],size[1:length(size)-1]))
 #new_tmp = map(x->rand(Float64,x),size[2:length(size)][1])
 #println()
 #eachcol
@@ -176,7 +186,7 @@ println("<============================>")
 
 #sgd(mapping(reshape(training_x,784,length(train_y)),train_y),30,10,3.0,w_and_b,mapping(reshape(test_x,784,length(test_y)),test_y))
 
-sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
+#sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
 
 
 
