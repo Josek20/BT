@@ -7,15 +7,15 @@ using MLDatasets
 
 #https://github.com/nmheim/NeuralNetworks
 
-struct Layer
-	b
-	w
+mutable struct Layer
+	b::Vector
+	W::Matrix
 end
 
-struct Network
-	#layers::Vector{Layer}
-	input_layer::Layer
-	output_layer::Layer
+mutable struct Network
+	layers::Vector{Layer}
+	#input_layer::Layer
+	#output_layer::Layer
 end
 
 function Layer(in::Int,out::Int)
@@ -24,7 +24,14 @@ function Layer(in::Int,out::Int)
 	Layer(b,w)
 end
 
-function (l::Layer)(x::Vector)
+function (n::Network)(x::Vector)
+	b = foreach((l,g)->l(g),n.layers,x)
+	#for i,k in (n,x)
+	#	i(k)
+	#end
+end
+
+function (l::Layer)(x::Float64)
 	#for i in zip(w)
 	println("ok")	
 	sigma(l.w*x+l.b)	
@@ -185,11 +192,11 @@ println("<============================>")
 
 
 model = Network(
-	Layer(3,2),#(784,30),
-	Layer(2,1)#(30,10)
+	[Layer(2,3),#(784,30),
+	Layer(3,1)]#(30,10)
 )
 x = randn(2)
 # Still dosenot working((
-#y = model(x)
+y = model(x)
 
 
