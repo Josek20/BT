@@ -13,9 +13,9 @@ struct Layer
 end
 
 struct Network
-	sizes	
-	num_layers
-	w_and_b
+	#layers::Vector{Layer}
+	input_layer::Layer
+	output_layer::Layer
 end
 
 function Layer(in::Int,out::Int)
@@ -25,7 +25,9 @@ function Layer(in::Int,out::Int)
 end
 
 function (l::Layer)(x::Vector)
-	sigma(l.w*x+b)	
+	#for i in zip(w)
+	println("ok")	
+	sigma(l.w*x+l.b)	
 end
 
 #learning_rate = 1
@@ -67,10 +69,10 @@ function sgd(train_data,epochs,mini_batch_size,eta,w_and_b,test_data=0)#,test_la
 end
 
 
-function batch(x,bach_size)
+function batch(x,batch_size)
 	tmp = []
-	for i=0:bach_size:(length(x)-bach_size)
-		push!(tmp,x[i+1:i+bach_size])#updating_mini_batch(x[i+1:i+bach_size],eta,w_and_b)
+	for i=1:batch_size:(length(x)-batch_size)
+		push!(tmp,x[i:i-1+batch_size])
 	end
 	return tmp
 end
@@ -91,20 +93,34 @@ function updating_mini_batch(mini_batch,eta,w_and_b)
 	#return 1
 end
 
+
+function dot_product(w,b,x)
+	rmp = []
+	#println("ok :",length(w))
+	for i=1:Base.size(w)[1]
+		println(Base.size(w[i,:]))
+		push!(rmp,dot(w[i,:],x))
+	end
+	return rmp+b
+end
+
+
 function backprop(x,y,w_and_b,num_layers=3)
 	noble_b = map(x->zeros(1,length(x)),w_and_b.b) 
 	noble_w = map(x->zeros(1,length(x)),w_and_b.w)
 	activation = reshape(x,784)
-	activations =[] #[reshape(x,784)]
+	activations =[reshape(x,784)]
 	zs = []
-	for i=1:length(w_and_b.w)
+	for i=1:Base.size(w_and_b.w)[1]
 		
 		# DimensionMismatch
 		#z = dot(w_and_b.w[i][:,:],activation) + w_and_b.b[i]
 		######################
-		z = sum(w_and_b.w[i][:,:]*reshape(activation,784) + w_and_b.b[i])
+		z = dot_product(w_and_b.w[i],w_and_b.b[i],reshape(x,784))
+		#z = sum(w_and_b.w[i][:,:]*reshape(activation,784) + w_and_b.b[i])
 		push!(zs,z)
-		activation = sigma(z)
+
+		activation = map(g->sigma(g),z)
 
 		push!(activations,activation)
 		
@@ -158,36 +174,22 @@ end
 
 size = [784,30,10]
 w_and_b = Layer(map(x->rand(Float64,x),size[2:length(size)]),map((x,y)->rand(Float64,(x,y)),size[2:length(size)],size[1:length(size)-1]))
-#new_tmp = map(x->rand(Float64,x),size[2:length(size)][1])
-#println()
-#eachcol
-
 #net = Network(size,length(size),w_and_b)
-
 training_x,train_y = MNIST.traindata()
 test_x,test_y = MNIST.testdata()
-
-#println(length(test_x))
-
-
 println("<============================>")
-#println()
-#println(zipping(training_x,train_y)[1])
-#tmp = zipping(training_x,train_y)
-
-#p = MNIST.traintensor(Float32)#MNIST.convert2features(MNIST.traintensor())
-#@view p
-#println(typeof(reshape(training_x,60000,784)))
-
-
-
-
-
-
-#sgd(mapping(reshape(training_x,784,length(train_y)),train_y),30,10,3.0,w_and_b,mapping(reshape(test_x,784,length(test_y)),test_y))
-
 #sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
+# Old code
+
+# Updated code
 
 
+model = Network(
+	Layer(3,2),#(784,30),
+	Layer(2,1)#(30,10)
+)
+x = randn(2)
+# Still dosenot working((
+#y = model(x)
 
 
