@@ -104,7 +104,7 @@ function updating_mini_batch(mini_batch,eta,w_and_b)
 end
 
 
-function dot_product(w,b,x)
+function dot_product(w,x,b=0)
 	rmp = []
 	#println("ok :",length(w))
 	for i=1:Base.size(w)[1]
@@ -116,8 +116,8 @@ end
 
 
 function backprop(x,y,w_and_b,num_layers=3)
-	noble_b = map(x->zeros(1,length(x)),w_and_b.b) 
-	noble_w = map(x->zeros(1,length(x)),w_and_b.w)
+	noble_b = map(x->zeros(Base.size(x)),w_and_b.b) 
+	noble_w = map(x->zeros(Base.size(x)),w_and_b.w)
 	activation = convert(Array{Float64},reshape(x,1,784))
 	activations =[activation]
 	zs = []
@@ -126,7 +126,7 @@ function backprop(x,y,w_and_b,num_layers=3)
 		# DimensionMismatch
 		#z = dot(w_and_b.w[i][:,:],activation) + w_and_b.b[i]
 		######################
-		z = dot_product(w_and_b.w[i],w_and_b.b[i],activation)
+		z = dot_product(w_and_b.w[i],activation,w_and_b.b[i])
 		push!(zs,z)
 		activation = map(g->sigma(g),z)
 	
@@ -135,16 +135,20 @@ function backprop(x,y,w_and_b,num_layers=3)
 		#println("ok")
 	end
 	
-	println(Base.size(cost_derivative(activations[length(activations)],y)))
-	println(Base.size(map(b->sigma_prime(b),zs[length(zs)])))
-	delta = cost_derivative(activations[length(activations)],y)*reshape(map(b->sigma_prime(b),zs[length(zs)]),1,length(map(b->sigma_prime(b),zs[length(zs)])))
+	#println(Base.size(cost_derivative(activations[length(activations)],y)))
+	reshape_size = Base.size(map(b->sigma_prime(b),zs[length(zs)]))
+	delta = cost_derivative(activations[length(activations)],y).*reshape(map(b->sigma_prime(b),zs[length(zs)]),1,reshape_size[1])
 
-	#println(delta)
-	#println(typeof(delta))
-	#println(typeof(noble_b))
-	noble_b[length(noble_b)] = reshape(delta,1,length(delta))
+	#println(Base.size(delta))
+	println(delta)
+	println(typeof(noble_b[length(noble_b)]))
+	noble_b[length(noble_b)] = reshape(delta,length(delta))
 	println("ok")
-	noble_w[length(noble_b)] = dot(delta,transpose(activations[length(activations)-1]))
+	#println(Base.size(noble_w[length(noble_b)]))
+	noble_w[length(noble_b)] = dot_product(delta,activations[length(activations)-1])
+	#illegal moves
+	#transpose(activations[length(activations)-1]))
+
 	println("ok")
 	for i = 3:num_layers
 		z = zs[length(zs)-i]
