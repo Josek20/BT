@@ -9,7 +9,8 @@ using MLDatasets
 
 mutable struct Layer
 	b::Vector
-	W::Matrix
+	#W::Array#Matrix{Float64}
+	w::Array
 end
 
 mutable struct Network
@@ -19,9 +20,9 @@ mutable struct Network
 end
 
 function Layer(in::Int,out::Int)
-	w = rand(in,out)
-	b = rand(out,1)
-	Layer(b,w)
+	W = rand(in,out)#{Matrix}
+	b = rand(out,1)#{Vector}
+	Layer(b,W)
 end
 
 function (n::Network)(x::Vector)
@@ -89,9 +90,11 @@ function updating_mini_batch(mini_batch,eta,w_and_b)
 	#updating 'w' and 'b' 
 	noble_b = map(x->zeros(1,length(x)),w_and_b.b) 
 	noble_w = map(x->zeros(1,length(x)),w_and_b.w)
-
+	nabla_b = []
+	nabla_w = []
 	for i=1:length(mini_batch)
 		delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],w_and_b)
+		println("ok")
 		nabla_b = map((n_b,d_b)->n_b+d_b,noble_b,delta_b)
 		nabla_w = map((n_w,d_w)->n_w+d_w,noble_w,delta_w)
 		w_and_b.w = map((w,n_w)->w-(eta/length(mini_batch))*n_w,w_and_b.w,nable_w)
@@ -105,7 +108,7 @@ function dot_product(w,b,x)
 	rmp = []
 	#println("ok :",length(w))
 	for i=1:Base.size(w)[1]
-		println(Base.size(w[i,:]))
+		#println(Base.size(w[i,:]))
 		push!(rmp,dot(w[i,:],x))
 	end
 	return rmp+b
@@ -115,42 +118,51 @@ end
 function backprop(x,y,w_and_b,num_layers=3)
 	noble_b = map(x->zeros(1,length(x)),w_and_b.b) 
 	noble_w = map(x->zeros(1,length(x)),w_and_b.w)
-	activation = reshape(x,784)
-	activations =[reshape(x,784)]
+	activation = convert(Array{Float64},reshape(x,1,784))
+	activations =[activation]
 	zs = []
 	for i=1:Base.size(w_and_b.w)[1]
 		
 		# DimensionMismatch
 		#z = dot(w_and_b.w[i][:,:],activation) + w_and_b.b[i]
 		######################
-		z = dot_product(w_and_b.w[i],w_and_b.b[i],reshape(x,784))
-		#z = sum(w_and_b.w[i][:,:]*reshape(activation,784) + w_and_b.b[i])
+		z = dot_product(w_and_b.w[i],w_and_b.b[i],activation)
 		push!(zs,z)
-
 		activation = map(g->sigma(g),z)
-
-		push!(activations,activation)
+	
+		push!(activations,reshape(activation,1,length(activation)))
 		
-		println("ok")
+		#println("ok")
 	end
-	delta = cost_derivative(activations[length(activations)],y)*sigma_prime(zs[length(zs)])
-	nabla_b[length(nabla_b)] = delta
-	nabla_w[length(nabla_b)] = dot(delta,transpose(activations[length(activations)-1]))
+	
+	println(Base.size(cost_derivative(activations[length(activations)],y)))
+	println(Base.size(map(b->sigma_prime(b),zs[length(zs)])))
+	delta = cost_derivative(activations[length(activations)],y)*reshape(map(b->sigma_prime(b),zs[length(zs)]),1,length(map(b->sigma_prime(b),zs[length(zs)])))
 
+	#println(delta)
+	#println(typeof(delta))
+	#println(typeof(noble_b))
+	noble_b[length(noble_b)] = reshape(delta,1,length(delta))
+	println("ok")
+	noble_w[length(noble_b)] = dot(delta,transpose(activations[length(activations)-1]))
+	println("ok")
 	for i = 3:num_layers
 		z = zs[length(zs)-i]
 		sp = sigma_prime(z)
 		delta = (transpose(w_and_b.w[length(w_and_b.w)-i+1]*delta))*sp
-		nabla_b[length(nabla_b)-i] = delta
-		nabla_w[length(nabla_w)-i] = delta*transpose(activations[length(activations)-i-1])
+		noble_b[length(nabla_b)-i] = delta
+		noble_w[length(nabla_w)-i] = delta*transpose(activations[length(activations)-i-1])
 	end
 
 
-	return (nabla_b,nabla_w)
+	return (noble_b,noble_w)
 end
 
 function cost_derivative(output_active,y)
-	return output_avtive-y
+	# making numer y into array of zeros where y-th elem is 1 
+	new_y = zeros(Base.size(output_active))
+	new_y[y+1] = 1
+	return output_active-new_y
 end
 
 function evaluate(test_data,w_and_b)
@@ -185,7 +197,7 @@ w_and_b = Layer(map(x->rand(Float64,x),size[2:length(size)]),map((x,y)->rand(Flo
 training_x,train_y = MNIST.traindata()
 test_x,test_y = MNIST.testdata()
 println("<============================>")
-#sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
+sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
 # Old code
 
 # Updated code
@@ -197,6 +209,6 @@ model = Network(
 )
 x = randn(2)
 # Still dosenot working((
-y = model(x)
+#y = model(x)
 
 
