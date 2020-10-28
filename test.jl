@@ -8,9 +8,8 @@ using MLDatasets
 #https://github.com/nmheim/NeuralNetworks
 
 mutable struct Layer
-	b::Vector
-	#W::Array#Matrix{Float64}
-	w::Array
+	b::Array
+	W::Array
 end
 
 mutable struct Network
@@ -20,22 +19,24 @@ mutable struct Network
 end
 
 function Layer(in::Int,out::Int)
-	W = rand(in,out)#{Matrix}
+	W = rand(out,in)#{Matrix}
 	b = rand(out,1)#{Vector}
 	Layer(b,W)
 end
 
 function (n::Network)(x::Vector)
-	b = foreach((l,g)->l(g),n.layers,x)
-	#for i,k in (n,x)
-	#	i(k)
-	#end
+	v = []
+	for i in n.layers
+		v = i(x)
+		x = reshape(v,length(v))
+	end
+	return x
 end
 
-function (l::Layer)(x::Float64)
-	#for i in zip(w)
-	println("ok")	
-	sigma(l.w*x+l.b)	
+function (l::Layer)(x::Vector)
+	tmp = map(s->sigma(s),l.W*x+l.b)
+	#println(tmp)
+	return tmp
 end
 
 #learning_rate = 1
@@ -43,7 +44,8 @@ end
 #functions
 
 function feed_forward(a,w_and_b)
-	a = map((w,b)->sigma((w*a)+b),w_and_b.w,w_and_b.b)
+	# suppose to be dot product
+	a = map((w,b)->sigma(dot(w,a)+b),w_and_b.w,w_and_b.b)
 	return a
 end
 
@@ -147,19 +149,19 @@ function backprop(x,y,w_and_b,num_layers=3)
 	#println(Base.size(noble_w[length(noble_b)]))
 	noble_w[length(noble_b)] = dot_product(delta,activations[length(activations)-1])
 	#illegal moves
-	#transpose(activations[length(activations)-1]))
+	#transpose(activations[length(activations)-1])
 
 	println("ok")
 	for i = 3:num_layers
 		z = zs[length(zs)-i]
 		sp = sigma_prime(z)
 		delta = (transpose(w_and_b.w[length(w_and_b.w)-i+1]*delta))*sp
-		noble_b[length(nabla_b)-i] = delta
-		noble_w[length(nabla_w)-i] = delta*transpose(activations[length(activations)-i-1])
+		noble_b[length(noble_b)-i] = delta
+		noble_w[length(noble_w)-i] = delta*transpose(activations[length(activations)-i-1])
 	end
 
 
-	return (noble_b,noble_w)
+	return noble_b,noble_w
 end
 
 function cost_derivative(output_active,y)
@@ -195,13 +197,13 @@ end
 
 #Initiating NN
 
-size = [784,30,10]
-w_and_b = Layer(map(x->rand(Float64,x),size[2:length(size)]),map((x,y)->rand(Float64,(x,y)),size[2:length(size)],size[1:length(size)-1]))
+#size = [784,30,10]
+#w_and_b = Layer(map(x->rand(Float64,x),size[2:length(size)]),map((x,y)->rand(Float64,(x,y)),size[2:length(size)],size[1:length(size)-1]))
 #net = Network(size,length(size),w_and_b)
 training_x,train_y = MNIST.traindata()
 test_x,test_y = MNIST.testdata()
 println("<============================>")
-sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
+#sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
 # Old code
 
 # Updated code
@@ -213,6 +215,7 @@ model = Network(
 )
 x = randn(2)
 # Still dosenot working((
-#y = model(x)
-
+y = model(x)
+println(y)
+@assert Base.size(y) == (1,)
 
