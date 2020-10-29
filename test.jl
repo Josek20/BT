@@ -4,44 +4,40 @@
 using Random
 using LinearAlgebra
 using MLDatasets
+using StatsBase
 
-#https://github.com/nmheim/NeuralNetworks
 
 mutable struct Layer
-	b::Array
-	W::Array
+	b::Vector
+	W::Matrix
 end
 
 mutable struct Network
 	layers::Vector{Layer}
-	#input_layer::Layer
-	#output_layer::Layer
 end
 
 function Layer(in::Int,out::Int)
-	W = rand(out,in)#{Matrix}
-	b = rand(out,1)#{Vector}
+	W = rand(out,in)
+	b = rand(out)
 	Layer(b,W)
 end
+
 
 function (n::Network)(x::Vector)
 	v = []
 	for i in n.layers
 		v = i(x)
-		x = reshape(v,length(v))
+		x = v
 	end
 	return x
 end
 
+
 function (l::Layer)(x::Vector)
-	tmp = map(s->sigma(s),l.W*x+l.b)
-	#println(tmp)
+	tmp = sigma.(l.W*x+l.b)
 	return tmp
 end
 
-#learning_rate = 1
-
-#functions
 
 function feed_forward(a,w_and_b)
 	# suppose to be dot product
@@ -49,26 +45,27 @@ function feed_forward(a,w_and_b)
 	return a
 end
 
+
 function sigma(x)
 	return 1/(1+exp(-x))
 end
-
 
 
 function sigma_prime(x)
 	return sigma(x)*(1-sigma(x))
 end
 
-function sgd(train_data,epochs,mini_batch_size,eta,w_and_b,test_data=0)#,test_labels=0)
+
+function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 	if test_data != 0
 		n_test = length(test_data)
 	end
 	for epoch=1:epochs
-		n = length(train_data)
-		#println([0:mini_batch_size:n])
-		mini_batches = batch(train_data,mini_batch_size)
+		#n = length(train_data)
+		
+		mini_batches = random_batch(train_data,mini_batch_size)
 	
-		new_bt = map(min_bt->updating_mini_batch(min_bt,eta,w_and_b),mini_batches)	
+		new_bt = map(min_bt->updating_mini_batch(min_bt,eta,model),mini_batches)	
 		println("ok")
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data),"/",n_test)
@@ -79,23 +76,28 @@ function sgd(train_data,epochs,mini_batch_size,eta,w_and_b,test_data=0)#,test_la
 end
 
 
-function batch(x,batch_size)
-	tmp = []
-	for i=1:batch_size:(length(x)-batch_size)
-		push!(tmp,x[i:i-1+batch_size])
-	end
-	return tmp
+function random_batch(x::Array,batch_size::Int)
+	indx = sample(1:Base.size(x)[1],batch_size,replace = false)
+	return x[indx]
+	#a = sample(x[:,indx]
+	#tmp = []
+	#for i=1:batch_size:(length(x)-batch_size)
+	#	push!(tmp,x[i:i-1+batch_size])
+	#end
+	#return tmp
 end
 
+tr_x = MNIST.traintensor(Float64)
+#random_batch(tr_x,10)
 
-function updating_mini_batch(mini_batch,eta,w_and_b)
+function updating_mini_batch(mini_batch,eta,model)
 	#updating 'w' and 'b' 
-	noble_b = map(x->zeros(1,length(x)),w_and_b.b) 
-	noble_w = map(x->zeros(1,length(x)),w_and_b.w)
+	noble_b = map(x->zeros(1,length(x)),model.layers.b) 
+	noble_w = map(x->zeros(1,length(x)),model.layers.W)
 	nabla_b = []
 	nabla_w = []
 	for i=1:length(mini_batch)
-		delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],w_and_b)
+		delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],model)
 		println("ok")
 		nabla_b = map((n_b,d_b)->n_b+d_b,noble_b,delta_b)
 		nabla_w = map((n_w,d_w)->n_w+d_w,noble_w,delta_w)
@@ -139,16 +141,18 @@ function backprop(x,y,w_and_b,num_layers=3)
 	
 	#println(Base.size(cost_derivative(activations[length(activations)],y)))
 	reshape_size = Base.size(map(b->sigma_prime(b),zs[length(zs)]))
+	
 	delta = cost_derivative(activations[length(activations)],y).*reshape(map(b->sigma_prime(b),zs[length(zs)]),1,reshape_size[1])
 
 	#println(Base.size(delta))
-	println(delta)
-	println(typeof(noble_b[length(noble_b)]))
+	#println(delta)
+	#println(typeof(noble_b[length(noble_b)]))
+	
 	noble_b[length(noble_b)] = reshape(delta,length(delta))
 	println("ok")
 	#println(Base.size(noble_w[length(noble_b)]))
+
 	noble_w[length(noble_b)] = dot_product(delta,activations[length(activations)-1])
-	#illegal moves
 	#transpose(activations[length(activations)-1])
 
 	println("ok")
@@ -164,12 +168,14 @@ function backprop(x,y,w_and_b,num_layers=3)
 	return noble_b,noble_w
 end
 
+
 function cost_derivative(output_active,y)
 	# making numer y into array of zeros where y-th elem is 1 
 	new_y = zeros(Base.size(output_active))
 	new_y[y+1] = 1
 	return output_active-new_y
 end
+
 
 function evaluate(test_data,w_and_b)
 	function arg_max(x)
@@ -187,22 +193,26 @@ function evaluate(test_data,w_and_b)
 	return cumsum(map((x,y)->x==y,test_result),dims=1)[length(map((x,y)->x==y,test_result))]
 end
 
-function zipping(sample,label)
-	a = []
+
+function zipping(sample::Matrix,label::Array)
+	a = Vector[]
 	for i=1:length(label)
 		push!(a,(sample[:,:,i],label[i]))	
 	end
 	return a
 end
 
+
 #Initiating NN
 
 #size = [784,30,10]
 #w_and_b = Layer(map(x->rand(Float64,x),size[2:length(size)]),map((x,y)->rand(Float64,(x,y)),size[2:length(size)],size[1:length(size)-1]))
 #net = Network(size,length(size),w_and_b)
+
 training_x,train_y = MNIST.traindata()
 test_x,test_y = MNIST.testdata()
 println("<============================>")
+
 #sgd(zipping(training_x,train_y),30,10,3.0,w_and_b,zipping(test_x,test_y))
 # Old code
 
@@ -210,12 +220,15 @@ println("<============================>")
 
 
 model = Network(
-	[Layer(2,3),#(784,30),
-	Layer(3,1)]#(30,10)
+	[Layer(784,30),#(784,30),
+	Layer(30,10)]#(30,10)
 )
-x = randn(2)
-# Still dosenot working((
-y = model(x)
-println(y)
-@assert Base.size(y) == (1,)
+#x = randn(2)
+#y = model(x)
+#println(y)
+#@assert Base.size(y) == (1,)
 
+
+data = zipping(tr_x,train_y)
+#display(train_y)
+random_batch(data,10)
