@@ -5,11 +5,12 @@ using Random
 using LinearAlgebra
 using MLDatasets
 
+
 #https://github.com/nmheim/NeuralNetworks
 
 mutable struct Layer
-	b::Array
-	W::Array
+    b::Vector
+	W::Matrix
 end
 
 mutable struct Network
@@ -20,7 +21,7 @@ end
 
 function Layer(in::Int,out::Int)
 	W = rand(out,in)#{Matrix}
-	b = rand(out,1)#{Vector}
+	b = rand(out)#{Vector}
 	Layer(b,W)
 end
 
@@ -28,17 +29,12 @@ function (n::Network)(x::Vector)
 	v = []
 	for i in n.layers
 		v = i(x)
-		x = reshape(v,length(v))
+		x = v
 	end
 	return x
 end
 
-function (l::Layer)(x::Vector)
-	tmp = map(s->sigma(s),l.W*x+l.b)
-	#println(tmp)
-	return tmp
-end
-
+(l::Layer)(x::Vector) = map(s->sigma(s),l.W*x+l.b)
 #learning_rate = 1
 
 #functions
@@ -53,6 +49,19 @@ function sigma(x)
 	return 1/(1+exp(-x))
 end
 
+layer = Layer(2,3) # construct a layer with input size 2 and output size 3
+x = rand(2)
+y = layer(x)
+@assert size(y) == (3,)
+
+model = Network([
+    Layer(2,3),
+    Layer(3,1),
+])
+x = randn(2)  # test input
+y = model(x)  # compute forward pass with the overloaded 'call' method of the Network
+@assert size(y) == (1,)
+error()
 
 
 function sigma_prime(x)
