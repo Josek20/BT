@@ -4,12 +4,12 @@ using MLDatasets
 using StatsBase
 
 
-mutable struct Layer
+struct Layer
 	b::Vector
 	W::Matrix
 end
 
-mutable struct Network
+struct Network
 	layers::Vector{Layer}
 end
 
@@ -21,12 +21,14 @@ end
 
 
 function (n::Network)(x::Vector)
-	v = []
+	v = [x]
+	zs = []
 	for i in n.layers
-		v = i(x)
-		x = v
+		push!(zs,i.W*x+i.b)
+		push!(v,i(x))
+		x = v[end]
 	end
-	return x
+	return zs,v
 end
 
 
@@ -51,7 +53,7 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 		n_test = length(test_data)
 	end
 	for epoch=1:epochs
-		train_data = train_data[shuffle(1:end)]
+		#train_data = train_data[shuffle(1:end)]
 		mini_batches = random_batch(train_data,mini_batch_size)
 	
 		new_bt = map(min_bt->updating_mini_batch(min_bt,eta,model),mini_batches)	
@@ -65,9 +67,9 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 end
 
 
-function random_batch(x::Array,batch_size::Int)
-	#indx = sample(1:Base.size(x)[1],batch_size,replace = false)
-	return[x[i:i-1+batch_size] for i=1:batch_size:length(x)]
+function random_batch(x::Matrix,batch_size::Int)
+	indx = sample(1:Base.size(x)[1],batch_size,replace = false)
+	return x[indx]#[x[i:i-1+batch_size] for i=1:batch_size:length(x)]
 end
 
 
@@ -81,48 +83,29 @@ function updating_mini_batch(mini_batch,eta,model)
 		delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],model,length(model.layers)+1)
 		nabla_b = noble_b+delta_b#map((n_b,d_b)->n_b+d_b,noble_b,delta_b)
 		nabla_w = noble_w+delta_w#map((n_w,d_w)->n_w+d_w,noble_w,delta_w)
-		model.layers = map((l,n_w,n_b)->Layer(l.b-(eta/length(mini_batch))*n_b,l.W-(eta/length(mini_batch)*n_w)),model.layers,nabla_w,nabla_b)
+		model.layers .= map((l,n_w,n_b)->Layer(l.b-(eta/length(mini_batch))*n_b,l.W-(eta/length(mini_batch)*n_w)),model.layers,nabla_w,nabla_b)
 	end
 end
 
 
-function backprop(x,y,model,num_layers=3)
+function backprop(x::Vector,y::Int,model::Network,num_layers=3)
 	noble_b = map(x->zeros(size(x.b)),model.layers) 
 	noble_w = map(x->zeros(size(x.W)),model.layers)
-	activation = reshape(x,1,length(x))#convert(Array{Float64},reshape(x,1,784))
-	activations =[activation]
-	zs = []
+	zs,activations = model(x) 
+
+	delta = cost_derivative(activations[end],y).*map(b->sigma_prime(b),zs[end])
+
+	noble_b[end] .= delta 		
+	noble_w[end] .= delta*activations[end-1]'
 	
-	for i=1:size(model.layers)[1]
-		
-		z = sum(model.layers[i].W.*activations[end],dims = 2)+model.layers[i].b
-
-		push!(zs,z)
-		activation = map(g->sigma(g),z)
-	
-		push!(activations,reshape(activation,1,length(activation)))
-		
-	end
-	
-
-	reshape_size = Base.size(map(b->sigma_prime(b),zs[length(zs)]))
-	
-	delta = cost_derivative(activations[length(activations)],y).*reshape(map(b->sigma_prime(b),zs[length(zs)]),1,reshape_size[1])
-
-	delta = reshape(delta,length(delta))
-
-	noble_b[end] = delta 	
-	noble_w[end] = activations[end-1].*delta
-
-	for i = 2:num_layers-1
-		z = zs[length(zs)-i+1]
+	for i = length(model.layers)-1:-1:1 	
+		z = zs[i]
 		sp = sigma_prime.(z)
-		delta = sum(transpose(model.layers[length(model.layers)-i+2].W.*delta),dims = 2).*sp
-		
-
-		noble_b[end-i+1] = reshape(delta,length(delta))
-		noble_w[end-i+1] = activations[end-i].*delta
-
+		layer = model.layers[i+1]
+		W,b = layer.W,layer.b
+		delta = (W'*delta).*sp
+		noble_b[i] .= delta#reshape(delta,length(delta))
+		noble_w[i] .= delta*activations[i]'
 	end
 
 	return noble_b,noble_w
@@ -130,7 +113,7 @@ end
 
 
 function cost_derivative(output_active,y)
-	# making numer y into array of zeros where y-th elem is 1 
+	# making number y into array of zeros where y-th elem is 1 
 	new_y = zeros(Base.size(output_active))
 	new_y[y+1] = 1
 	return output_active-new_y
@@ -145,8 +128,8 @@ function evaluate(test_data,model)
 end
 
 
-function zipping(sample::Array,label::Array)
-	a = Vector[]
+function zipping(sample,label::Array)
+	a = []
 	for i=1:length(label)
 		push!(a,(sample[:,:,i],label[i]))	
 	end
@@ -170,8 +153,8 @@ model = Network(
 )
 
 
-data = zipping(tr_x,train_y)
-#tst = zipping(test_x,test_y)
+data = zipping(training_x,train_y)
+tst = zipping(test_x,test_y)
 #evaluate(tst,model)
 #display(train_y)
-sgd(data,30,10,3.0,model,tst)
+#sgd(data,30,10,3.0,model,tst)
