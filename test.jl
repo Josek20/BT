@@ -53,10 +53,9 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 		n_test = length(test_data)
 	end
 	for epoch=1:epochs
-		#train_data = train_data[shuffle(1:end)]
+		#mini_batches = train_data[shuffle(1:end)]
 		mini_batches = random_batch(train_data,mini_batch_size)
-	
-		new_bt = map(min_bt->updating_mini_batch(min_bt,eta,model),mini_batches)	
+		map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),train_data)
 
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data,model),"/",n_test)
@@ -67,9 +66,9 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 end
 
 
-function random_batch(x::Matrix,batch_size::Int)
-	indx = sample(1:Base.size(x)[1],batch_size,replace = false)
-	return x[indx]#[x[i:i-1+batch_size] for i=1:batch_size:length(x)]
+function random_batch(x::Vector,batch_size::Int)
+	indx = sample(1:Base.size(x,1),batch_size,replace = false)
+	return x[indx]
 end
 
 
@@ -77,13 +76,16 @@ function updating_mini_batch(mini_batch,eta,model)
 	#updating 'w' and 'b' 
 	noble_b = map(x->zeros(size(x.b)),model.layers) 
 	noble_w = map(x->zeros(size(x.W)),model.layers)
-	nabla_b = []
-	nabla_w = []
 	for i=1:length(mini_batch)
 		delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],model,length(model.layers)+1)
-		nabla_b = noble_b+delta_b#map((n_b,d_b)->n_b+d_b,noble_b,delta_b)
-		nabla_w = noble_w+delta_w#map((n_w,d_w)->n_w+d_w,noble_w,delta_w)
-		model.layers .= map((l,n_w,n_b)->Layer(l.b-(eta/length(mini_batch))*n_b,l.W-(eta/length(mini_batch)*n_w)),model.layers,nabla_w,nabla_b)
+		all_W,all_b = map(l->l.W,model.layers),map(l->l.b,model.layers)
+		new_W = all_W-(eta/length(mini_batch))*delta_w
+		new_b = all_b-(eta/length(mini_batch))*delta_b
+		for i=1:length(model.layers) 
+			model.layers[i].W .= new_W[i]
+			model.layers[i].b .= new_b[i]
+		end
+			
 	end
 end
 
@@ -131,7 +133,7 @@ end
 function zipping(sample,label::Array)
 	a = []
 	for i=1:length(label)
-		push!(a,(sample[:,:,i],label[i]))	
+		push!(a,(reshape(sample[:,:,i],length(sample[:,:,i])),label[i]))	
 	end
 	return a
 end
@@ -157,4 +159,4 @@ data = zipping(training_x,train_y)
 tst = zipping(test_x,test_y)
 #evaluate(tst,model)
 #display(train_y)
-#sgd(data,30,10,3.0,model,tst)
+sgd(data,30,10,3.0,model,tst)
