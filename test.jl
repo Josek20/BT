@@ -54,8 +54,8 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 	end
 	for epoch=1:epochs
 		#mini_batches = train_data[shuffle(1:end)]
-		mini_batches = random_batch(train_data,mini_batch_size)
-		map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),train_data)
+		map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),1:mini_batch_size:length(train_data))
+		
 
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data,model),"/",n_test)
@@ -79,8 +79,12 @@ function updating_mini_batch(mini_batch,eta,model)
 	for i=1:length(mini_batch)
 		delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],model,length(model.layers)+1)
 		all_W,all_b = map(l->l.W,model.layers),map(l->l.b,model.layers)
-		new_W = all_W-(eta/length(mini_batch))*delta_w
-		new_b = all_b-(eta/length(mini_batch))*delta_b
+
+		noble_w = noble_w+delta_w
+		noble_b = noble_b+delta_b
+	
+		new_W = all_W-(eta/length(mini_batch))*noble_w
+		new_b = all_b-(eta/length(mini_batch))*noble_b
 		for i=1:length(model.layers) 
 			model.layers[i].W .= new_W[i]
 			model.layers[i].b .= new_b[i]
