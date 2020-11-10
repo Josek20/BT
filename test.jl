@@ -83,8 +83,8 @@ function updating_mini_batch(mini_batch,eta,model)
 		noble_w = noble_w+delta_w
 		noble_b = noble_b+delta_b
 	
-		new_W = all_W-(eta/length(mini_batch))*noble_w
-		new_b = all_b-(eta/length(mini_batch))*noble_b
+		new_W = map((_W,n_w)->_W-(eta/length(mini_batch))*n_w,all_W,noble_w)
+		new_b = map((_b,n_b)->_b-(eta/length(mini_batch))*n_b,all_b,noble_b)
 		for i=1:length(model.layers) 
 			model.layers[i].W .= new_W[i]
 			model.layers[i].b .= new_b[i]
@@ -110,7 +110,7 @@ function backprop(x::Vector,y::Int,model::Network,num_layers=3)
 		layer = model.layers[i+1]
 		W,b = layer.W,layer.b
 		delta = (W'*delta).*sp
-		noble_b[i] .= delta#reshape(delta,length(delta))
+		noble_b[i] .= delta
 		noble_w[i] .= delta*activations[i]'
 	end
 
