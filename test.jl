@@ -56,7 +56,7 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 		#mini_batches = train_data[shuffle(1:end)]
 		map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),1:mini_batch_size:length(train_data))
 		
-
+		display(model.layers[2].b)
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data,model),"/",n_test)
 		else
@@ -83,8 +83,8 @@ function updating_mini_batch(mini_batch,eta,model)
 		noble_w = noble_w+delta_w
 		noble_b = noble_b+delta_b
 	
-		new_W = map((_W,n_w)->_W-(eta/length(mini_batch))*n_w,all_W,noble_w)
-		new_b = map((_b,n_b)->_b-(eta/length(mini_batch))*n_b,all_b,noble_b)
+		new_W = map((_W,n_w)->_W-(eta/length(mini_batch)).*n_w,all_W,noble_w)
+		new_b = map((_b,n_b)->_b-(eta/length(mini_batch)).*n_b,all_b,noble_b)
 		for i=1:length(model.layers) 
 			model.layers[i].W .= new_W[i]
 			model.layers[i].b .= new_b[i]
@@ -99,7 +99,7 @@ function backprop(x::Vector,y::Int,model::Network,num_layers=3)
 	noble_w = map(x->zeros(size(x.W)),model.layers)
 	zs,activations = model(x) 
 
-	delta = cost_derivative(activations[end],y).*map(b->sigma_prime(b),zs[end])
+	delta = cost_derivative(activations[end],y).*sigma_prime.(zs[end])
 
 	noble_b[end] .= delta 		
 	noble_w[end] .= delta*activations[end-1]'
@@ -126,9 +126,11 @@ function cost_derivative(output_active,y)
 end
 
 
+
+
 function evaluate(test_data,model)
-	test_result = map(x->(findmax(model(reshape(x[1],length(x[1]))))[2],x[2]),test_data)
-	#display(test_result)
+	test_result = map(x->(findmax(model(x[1]))[2]-1,x[2]),test_data)
+	display(test_result)
 	#True = 1, False = 0
 	return cumsum(map(x->x[1]==x[2],test_result),dims=1)[length(map(x->x[1]==x[2],test_result))]
 end
@@ -150,7 +152,6 @@ test_x,test_y = MNIST.testdata()
 tr_x = MNIST.traintensor(Float64)
 println("<============================>")
 
-# Updated code
 
 
 model = Network(
@@ -162,5 +163,6 @@ model = Network(
 data = zipping(training_x,train_y)
 tst = zipping(test_x,test_y)
 #evaluate(tst,model)
-#display(train_y)
-sgd(data,30,10,3.0,model,tst)
+display(model.layers[2].b)
+display("====")
+#sgd(data,30,10,0.01,model,tst)
