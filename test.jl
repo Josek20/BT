@@ -3,6 +3,11 @@ using LinearAlgebra
 using MLDatasets
 using StatsBase
 
+#Todo: initialization problem
+#cost function, new one
+#write down into LaTex SGD
+#Validation loss
+#Later 
 
 struct Layer
 	b::Vector
@@ -14,8 +19,8 @@ struct Network
 end
 
 function Layer(in::Int,out::Int)
-	W = rand(out,in)
-	b = rand(out)
+	W = randn(out,in)
+	b = randn(out)
 	Layer(b,W)
 end
 
@@ -56,7 +61,6 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 		#mini_batches = train_data[shuffle(1:end)]
 		map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),1:mini_batch_size:length(train_data))
 		
-		display(model.layers[2].b)
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data,model),"/",n_test)
 		else
@@ -122,7 +126,8 @@ function cost_derivative(output_active,y)
 	# making number y into array of zeros where y-th elem is 1 
 	new_y = zeros(Base.size(output_active))
 	new_y[y+1] = 1
-	return output_active-new_y
+	#display(((sum((output_active-new_y).^2))/length(output_active)))
+	return sum((output_active-new_y).^2)/length(output_active)
 end
 
 
@@ -130,7 +135,7 @@ end
 
 function evaluate(test_data,model)
 	test_result = map(x->(findmax(model(x[1]))[2]-1,x[2]),test_data)
-	display(test_result)
+	#display(test_result)
 	#True = 1, False = 0
 	return cumsum(map(x->x[1]==x[2],test_result),dims=1)[length(map(x->x[1]==x[2],test_result))]
 end
@@ -147,8 +152,8 @@ end
 
 #Initiating NN
 
-training_x,train_y = MNIST.traindata()
-test_x,test_y = MNIST.testdata()
+training_x,train_y = MNIST.traindata(Float32)
+test_x,test_y = MNIST.testdata(Float32)
 tr_x = MNIST.traintensor(Float64)
 println("<============================>")
 
@@ -165,4 +170,4 @@ tst = zipping(test_x,test_y)
 #evaluate(tst,model)
 display(model.layers[2].b)
 display("====")
-#sgd(data,30,10,0.01,model,tst)
+sgd(data[1:1000],100,2,0.15,model,data[1001:1500])
