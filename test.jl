@@ -28,14 +28,14 @@ end
 
 
 function (n::Network)(x::Vector)
-	v = [x]
+	active = [x]
 	zs = []
 	for i in n.layers
 		push!(zs,i.W*x+i.b)
-		push!(v,i(x))
-		x = v[end]
+		push!(active,i(x))
+		x = active[end]
 	end
-	return zs,v
+	return zs,active
 end
 
 
@@ -62,7 +62,8 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 	for epoch=1:epochs
 		#mini_batches = train_data[shuffle(1:end)]
 		map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),1:mini_batch_size:length(train_data))
-		push!(x_plot,sum(cost_derivative(model(test_data[1][1])[2][3],test_data[1][2])))
+		test_data = test_data[shuffle(1:end)]
+		push!(x_plot,sum(map(x->sum(cost(model(x[1])[2][3],x[2]))/length(test_data),test_data)))
 		push!(y_plot,epoch)
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data,model),"/",n_test)
@@ -90,8 +91,8 @@ function updating_mini_batch(mini_batch,eta,model)
 		noble_w = noble_w+delta_w
 		noble_b = noble_b+delta_b
 	
-		new_W = map((_W,n_w)->_W-(eta/length(mini_batch)).*n_w,all_W,noble_w)
-		new_b = map((_b,n_b)->_b-(eta/length(mini_batch)).*n_b,all_b,noble_b)
+		new_W = map((_W,n_w)->_W-(eta).*n_w,all_W,noble_w)
+		new_b = map((_b,n_b)->_b-(eta).*n_b,all_b,noble_b)
 		for i=1:length(model.layers) 
 			model.layers[i].W .= new_W[i]
 			model.layers[i].b .= new_b[i]
@@ -106,7 +107,7 @@ function backprop(x::Vector,y::Int,model::Network,num_layers=3)
 	noble_w = map(x->zeros(size(x.W)),model.layers)
 	zs,activations = model(x) 
 
-	delta = cost_derivative(activations[end],y).*sigma_prime.(zs[end])
+	delta = 2*cost_derivative(activations[end],y).*sigma_prime.(zs[end])
 
 	noble_b[end] .= delta 		
 	noble_w[end] .= delta.*activations[end-1]'
@@ -124,12 +125,16 @@ function backprop(x::Vector,y::Int,model::Network,num_layers=3)
 	return noble_b,noble_w
 end
 
+function cost(out_a,y)
+	return sum(cost_derivative(out_a,y).^2)	
+end
+
 
 function cost_derivative(output_active,y)
 	# making number y into array of zeros where y-th elem is 1 
 	new_y = zeros(Base.size(output_active))
 	new_y[y+1] = 1
-	return (output_active-new_y).^2
+	return (output_active-new_y)#sum((output_active-new_y).^2)
 end
 
 
@@ -139,7 +144,7 @@ function evaluate(test_data,model)
 	test_result = map(x->(findmax(model(x[1]))[2]-1,x[2]),test_data)
 	#display(test_result)
 	#True = 1, False = 0
-	return cumsum(map(x->x[1]==x[2],test_result),dims=1)[length(map(x->x[1]==x[2],test_result))]
+	return cumsum(map(x->x[1]==x[2],test_result),dims=1)[end]#[length(map(x->x[1]==x[2],test_result))]
 end
 
 
@@ -169,7 +174,7 @@ model = Network(
 data = zipping(training_x,train_y)
 tst = zipping(test_x,test_y)
 display("====")
-sgd(data,30,10,0.01,model,tst)
+sgd(data[1:10000],30,10,0.01,model,tst[1:1000])
 
 #Ploting evol of cost 
 gr()
@@ -177,4 +182,4 @@ plot(y_plot,x_plot,label="evol of cost")
 scatter!(y_plot,x_plot,label="evol of cost")
 xlabel!("Number of epoch")
 ylabel!("MSE")
-#png("C:\Users\alexs\Julia\test\\plot.png")
+png("C:/Users/alexs/Julia/test\\plot")
