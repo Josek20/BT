@@ -144,7 +144,8 @@ function evaluate(test_data,model)
 	test_result = map(x->(findmax(model(x[1]))[2]-1,x[2]),test_data)
 	#display(test_result)
 	#True = 1, False = 0
-	return cumsum(map(x->x[1]==x[2],test_result),dims=1)[end]#[length(map(x->x[1]==x[2],test_result))]
+	return sum(map(x->x[1]==x[2],test_result)) 
+	#cumsum(map(x->x[1]==x[2],test_result),dims=1)[end]#[length(map(x->x[1]==x[2],test_result))]
 end
 
 
@@ -174,7 +175,7 @@ model = Network(
 data = zipping(training_x,train_y)
 tst = zipping(test_x,test_y)
 display("====")
-sgd(data[1:10000],30,10,0.01,model,tst[1:1000])
+sgd(data,30,10,0.11,model,tst)
 
 #Ploting evol of cost 
 gr()
