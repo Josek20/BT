@@ -1,9 +1,11 @@
+using Plots
 using Random
 using LinearAlgebra
 using MLDatasets
 using StatsBase
 
-#Todo: initialization problem
+x_plot = []
+y_plot = []
 #cost function, new one
 #write down into LaTex SGD
 #Validation loss
@@ -60,7 +62,8 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 	for epoch=1:epochs
 		#mini_batches = train_data[shuffle(1:end)]
 		map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),1:mini_batch_size:length(train_data))
-		
+		push!(x_plot,sum(cost_derivative(model(test_data[1][1])[2][3],test_data[1][2])))
+		push!(y_plot,epoch)
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data,model),"/",n_test)
 		else
@@ -106,16 +109,16 @@ function backprop(x::Vector,y::Int,model::Network,num_layers=3)
 	delta = cost_derivative(activations[end],y).*sigma_prime.(zs[end])
 
 	noble_b[end] .= delta 		
-	noble_w[end] .= delta*activations[end-1]'
+	noble_w[end] .= delta.*activations[end-1]'
 	
-	for i = length(model.layers)-1:-1:1 	
+	for i = length(model.layers)-1:-1:1
 		z = zs[i]
 		sp = sigma_prime.(z)
 		layer = model.layers[i+1]
 		W,b = layer.W,layer.b
 		delta = (W'*delta).*sp
 		noble_b[i] .= delta
-		noble_w[i] .= delta*activations[i]'
+		noble_w[i] .= delta.*activations[i]'
 	end
 
 	return noble_b,noble_w
@@ -126,8 +129,7 @@ function cost_derivative(output_active,y)
 	# making number y into array of zeros where y-th elem is 1 
 	new_y = zeros(Base.size(output_active))
 	new_y[y+1] = 1
-	#display(((sum((output_active-new_y).^2))/length(output_active)))
-	return sum((output_active-new_y).^2)/length(output_active)
+	return (output_active-new_y).^2
 end
 
 
@@ -164,10 +166,15 @@ model = Network(
 	Layer(30,10)]
 )
 
-
 data = zipping(training_x,train_y)
 tst = zipping(test_x,test_y)
-#evaluate(tst,model)
-display(model.layers[2].b)
 display("====")
-sgd(data[1:1000],100,2,0.15,model,data[1001:1500])
+sgd(data,30,10,0.01,model,tst)
+
+#Ploting evol of cost 
+gr()
+plot(y_plot,x_plot,label="evol of cost")
+scatter!(y_plot,x_plot,label="evol of cost")
+xlabel!("Number of epoch")
+ylabel!("MSE")
+#png("C:\Users\alexs\Julia\test\\plot.png")
