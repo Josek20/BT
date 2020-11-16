@@ -60,22 +60,26 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 		n_test = length(test_data)
 	end
 	for epoch=1:epochs
-		#mini_batches = train_data[shuffle(1:end)]
-		map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),1:mini_batch_size:length(train_data))
-		test_data = test_data[shuffle(1:end)]
+		mini_batches = train_data[shuffle(1:end)]
+		#map(mini_batch->updating_mini_batch(random_batch(train_data,mini_batch_size),eta,model),1:mini_batch_size:length(train_data))
+		map(min_batch->updating_mini_batch(mini_batches[min_batch:min_batch+mini_batch_size-1],eta,model),1:mini_batch_size:length(train_data))
+		#test_data = test_data[shuffle(1:end)]
 		push!(x_plot,sum(map(x->sum(cost(model(x[1])[2][3],x[2]))/length(test_data),test_data)))
 		push!(y_plot,epoch)
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data,model),"/",n_test)
+			display(x_plot[end])
 		else
 			println("Epoch ",epoch,"complited")
 		end
+		#error()
 	end
 end
 
 
 function random_batch(x::Vector,batch_size::Int)
 	indx = sample(1:Base.size(x,1),batch_size,replace = false)
+	display(indx)
 	return x[indx]
 end
 
@@ -91,8 +95,8 @@ function updating_mini_batch(mini_batch,eta,model)
 		noble_w = noble_w+delta_w
 		noble_b = noble_b+delta_b
 	
-		new_W = map((_W,n_w)->_W-(eta).*n_w,all_W,noble_w)
-		new_b = map((_b,n_b)->_b-(eta).*n_b,all_b,noble_b)
+		new_W = map((_W,n_w)->_W-(eta/length(mini_batch)).*n_w,all_W,noble_w)
+		new_b = map((_b,n_b)->_b-(eta/length(mini_batch)).*n_b,all_b,noble_b)
 		for i=1:length(model.layers) 
 			model.layers[i].W .= new_W[i]
 			model.layers[i].b .= new_b[i]
@@ -107,11 +111,10 @@ function backprop(x::Vector,y::Int,model::Network,num_layers=3)
 	noble_w = map(x->zeros(size(x.W)),model.layers)
 	zs,activations = model(x) 
 
-	delta = 2*cost_derivative(activations[end],y).*sigma_prime.(zs[end])
+	delta = cost_derivative(activations[end],y).*sigma_prime.(zs[end])
 
 	noble_b[end] .= delta 		
-	noble_w[end] .= delta.*activations[end-1]'
-	
+	noble_w[end] .= delta*activations[end-1]'
 	for i = length(model.layers)-1:-1:1
 		z = zs[i]
 		sp = sigma_prime.(z)
@@ -119,7 +122,7 @@ function backprop(x::Vector,y::Int,model::Network,num_layers=3)
 		W,b = layer.W,layer.b
 		delta = (W'*delta).*sp
 		noble_b[i] .= delta
-		noble_w[i] .= delta.*activations[i]'
+		noble_w[i] .= delta*activations[i]'
 	end
 
 	return noble_b,noble_w
@@ -141,11 +144,11 @@ end
 
 
 function evaluate(test_data,model)
-	test_result = map(x->(findmax(model(x[1]))[2]-1,x[2]),test_data)
+	test_result = map(x->(findmax(model(x[1])[2][3])[2]-1,x[2]),test_data)
 	#display(test_result)
 	#True = 1, False = 0
 	return sum(map(x->x[1]==x[2],test_result)) 
-	#cumsum(map(x->x[1]==x[2],test_result),dims=1)[end]#[length(map(x->x[1]==x[2],test_result))]
+	#cumsum(map(x->x[1]==x[2],test_result),dims=1)[end]
 end
 
 
@@ -175,7 +178,7 @@ model = Network(
 data = zipping(training_x,train_y)
 tst = zipping(test_x,test_y)
 display("====")
-sgd(data,30,10,0.11,model,tst)
+sgd(data[1:1000],30,10,0.10,model,tst)
 
 #Ploting evol of cost 
 gr()
