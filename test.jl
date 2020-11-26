@@ -62,11 +62,10 @@ end
 function Base.:*(x::Float64,layer::Layer)
 	layer.b .*= x
 	layer.W .*= x
-	#return layer 
 end
 
 function Base.:*(x::Float64,model::Network)
-	map(model.layers) do(layer)
+	map(model.layers) do layer
 		x*layer
 	end
 end
@@ -77,7 +76,7 @@ function Base.:-(layer::Layer,delta_layer::Layer)
 end
 
 function Base.:-(model::Network,delta_model::Network)
-	map(model.layers,delta_model.layers) do (m_l,d_l)
+	map(model.layers,delta_model.layers) do m_l,d_l
 		m_l-d_l
 	end
 end
@@ -94,11 +93,11 @@ function sgd(train_data,epochs,mini_batch_size,eta,model,delta_model,test_data=0
 		end
 
 		# Should be simplified by 1 function
-		push!(x_plot,sum(map(x->sum(cost(model(x[1])[2][3],x[2]))/length(test_data),test_data)))
-		push!(y_plot,epoch)
+		#push!(x_plot,sum(map(x->sum(cost(model(x[1])[2][3],x[2]))/length(test_data),test_data)))
+		#push!(y_plot,epoch)
 		if test_data != 0
 			println("Epoch ",epoch,":",evaluate(test_data,model),"/",n_test)
-			display(x_plot[end])
+			#display(x_plot[end])
 		else
 			println("Epoch ",epoch,"complited")
 		end
@@ -121,7 +120,8 @@ function updating_mini_batch(mini_batch,eta,model,delta_model)
 		zs, activations = model(mini_batch[i][1])
 		cost_ = cost_derivative(activations[end],mini_batch[i][2])
 		back(zs,activations,cost_,model,delta_model)
-		model-(eta/length(mini_batch))*delta_model
+		((eta/length(mini_batch))*delta_model)
+		model-delta_model
 		
 
 		# Old version
@@ -228,5 +228,5 @@ delta_model = Network(
 
 data = zipping(training_x,train_y)
 tst = zipping(test_x,test_y)
-#sgd(data,30,10,0.10,model,tst)
+sgd(data,30,10,0.10,model,delta_model,tst)
 
