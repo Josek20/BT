@@ -60,31 +60,37 @@ function sigma_prime(x)
 end
 
 function Base.:*(x::Float64,layer::Layer)
-	map(layer) do
-	end
+	layer.b .*= x
+	layer.W .*= x
+	#return layer 
 end
 
 function Base.:*(x::Float64,model::Network)
 	map(model.layers) do(layer)
-		
+		x*layer
 	end
+end
+
+function Base.:-(layer::Layer,delta_layer::Layer)
+	layer.b .-= delta_layer.b
+	layer.W .-= delta_layer.W
 end
 
 function Base.:-(model::Network,delta_model::Network)
 	map(model.layers,delta_model.layers) do (m_l,d_l)
-		
+		m_l-d_l
 	end
 end
 
 
-function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
+function sgd(train_data,epochs,mini_batch_size,eta,model,delta_model,test_data=0)
 	if test_data != 0
 		n_test = length(test_data)
 	end
 	for epoch=1:epochs
 		map(1:mini_batch_size:length(train_data)) do x
 			rb = random_batch(train_data,mini_batch_size)
-			updating_mini_batch(rb,eta,model)
+			updating_mini_batch(rb,eta,model,delta_model)
 		end
 
 		# Should be simplified by 1 function
@@ -106,33 +112,40 @@ function random_batch(x::Vector,batch_size::Int)
 end
 
 
-function updating_mini_batch(mini_batch,eta,model)
+function updating_mini_batch(mini_batch,eta,model,delta_model)
 	#updating 'w' and 'b' 
-	noble_b = map(x->zeros(size(x.b)),model.layers) 
-	noble_w = map(x->zeros(size(x.W)),model.layers)
-	for i=1:length(mini_batch)
-		delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],model)
-		all_W,all_b = map(l->l.W,model.layers),map(l->l.b,model.layers)
-
-		noble_w = noble_w+delta_w
-		noble_b = noble_b+delta_b
+	#noble_b = map(x->zeros(size(x.b)),model.layers) 
+	#noble_w = map(x->zeros(size(x.W)),model.layers)
 	
-		#new_W = map((_W,n_w)->_W-(eta/length(mini_batch)).*n_w,all_W,noble_w)
-		#new_b = map((_b,n_b)->_b-(eta/length(mini_batch)).*n_b,all_b,noble_b)
-		new_W = all_W-(eta/length(mini_batch)).*noble_w
-		new_b = all_b-(eta/length(mini_batch)).*noble_b
-		for i=1:length(model.layers) 
-			model.layers[i].W .= new_W[i]
-			model.layers[i].b .= new_b[i]
-		end
+	for i=1:length(mini_batch)
+		zs, activations = model(mini_batch[i][1])
+		cost_ = cost_derivative(activations[end],mini_batch[i][2])
+		back(zs,activations,cost_,model,delta_model)
+		model-(eta/length(mini_batch))*delta_model
+		
+
+		# Old version
+		#delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],model)
+		#all_W,all_b = map(l->l.W,model.layers),map(l->l.b,model.layers)
+
+		#noble_w = noble_w+delta_w
+		#noble_b = noble_b+delta_b
+	
+		#new_W = all_W-(eta/length(mini_batch)).*noble_w
+		#new_b = all_b-(eta/length(mini_batch)).*noble_b
+		#for i=1:length(model.layers) 
+		#	model.layers[i].W .= new_W[i]
+		#	model.layers[i].b .= new_b[i]
+		#end
 			
 	end
 end
 
+
+
 function back(zs::Vector,activations::Vector,cost_::Vector,model::Network,delta_model::Network)
 	delta = 0
 	for i = length(model.layers):-1:1
-		#display(i)till 1
 		sp = sigma_prime.(zs[i])
 		delta = (i == length(model.layers) ? cost_ : model.layers[i+1].W'*delta).*sp
 		delta_model.layers[i].b .+= delta
