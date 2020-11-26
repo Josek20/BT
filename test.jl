@@ -71,6 +71,8 @@ function Base.:*(x::Float64,model::Network)
 end
 
 function Base.:-(layer::Layer,delta_layer::Layer)
+	#layer.b-delta_layer.b
+	#layer.W-delta_layer.W
 	layer.b .-= delta_layer.b
 	layer.W .-= delta_layer.W
 end
@@ -82,14 +84,14 @@ function Base.:-(model::Network,delta_model::Network)
 end
 
 
-function sgd(train_data,epochs,mini_batch_size,eta,model,delta_model,test_data=0)
+function sgd(train_data,epochs,mini_batch_size,eta,model,test_data=0)
 	if test_data != 0
 		n_test = length(test_data)
 	end
 	for epoch=1:epochs
 		map(1:mini_batch_size:length(train_data)) do x
 			rb = random_batch(train_data,mini_batch_size)
-			updating_mini_batch(rb,eta,model,delta_model)
+			updating_mini_batch(rb,eta,model)
 		end
 
 		# Should be simplified by 1 function
@@ -113,31 +115,17 @@ end
 
 function updating_mini_batch(mini_batch,eta,model,delta_model)
 	#updating 'w' and 'b' 
-	#noble_b = map(x->zeros(size(x.b)),model.layers) 
-	#noble_w = map(x->zeros(size(x.W)),model.layers)
 	
+	delta_model = Network(
+		[Layer(zeros(30),zeros(30,784)),
+		Layer(zeros(10),zeros(10,30))]
+	)
 	for i=1:length(mini_batch)
 		zs, activations = model(mini_batch[i][1])
 		cost_ = cost_derivative(activations[end],mini_batch[i][2])
 		back(zs,activations,cost_,model,delta_model)
-		((eta/length(mini_batch))*delta_model)
+		(eta/length(mini_batch))*delta_model
 		model-delta_model
-		
-
-		# Old version
-		#delta_b,delta_w = backprop(mini_batch[i][1],mini_batch[i][2],model)
-		#all_W,all_b = map(l->l.W,model.layers),map(l->l.b,model.layers)
-
-		#noble_w = noble_w+delta_w
-		#noble_b = noble_b+delta_b
-	
-		#new_W = all_W-(eta/length(mini_batch)).*noble_w
-		#new_b = all_b-(eta/length(mini_batch)).*noble_b
-		#for i=1:length(model.layers) 
-		#	model.layers[i].W .= new_W[i]
-		#	model.layers[i].b .= new_b[i]
-		#end
-			
 	end
 end
 
@@ -153,30 +141,6 @@ function back(zs::Vector,activations::Vector,cost_::Vector,model::Network,delta_
 	end
 end
 
-
-
-function backprop(x::Vector,y::Int,model::Network)
-	noble_b = map(x->zeros(size(x.b)),model.layers) 
-	noble_w = map(x->zeros(size(x.W)),model.layers)
-	zs,activations = model(x) 
-
-	delta = cost_derivative(activations[end],y).*sigma_prime.(zs[end])
-
-	noble_b[end] .= delta 		
-	noble_w[end] .= delta*activations[end-1]'
-
-	for i = length(model.layers)-1:-1:1
-		#z = zs[i]
-		sp = sigma_prime.(zs[i])
-		layer = model.layers[i+1]
-		W = layer.W
-		delta = (W'*delta).*sp
-		noble_b[i] .= delta
-		noble_w[i] .= delta*activations[i]'
-	end
-
-	return noble_b,noble_w
-end
 
 function cost(out_a,y)
 	return sum(cost_derivative(out_a,y).^2)	
@@ -221,12 +185,8 @@ model = Network(
 	[Layer(784,30),
 	Layer(30,10)]
 )
-delta_model = Network(
-	[Layer(zeros(30),zeros(30,784)),
-	Layer(zeros(10),zeros(10,30))]
-)
 
 data = zipping(training_x,train_y)
 tst = zipping(test_x,test_y)
-sgd(data,30,10,0.10,model,delta_model,tst)
+sgd(data,30,10,0.10,model,tst)
 
