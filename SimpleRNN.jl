@@ -7,38 +7,8 @@ using StatsBase
 	my RNN cell implementation
 =#
 
-#=
-struct RNNcell{func,dense_,weights,biases,state}
-	sgm::func
-	Wi::dense_
-	Wh::weights
-	b::biases
-	st::state
-end
 
-
-RNNcell(in,out,network) = RNNcell(tanh,network,Flux.glorot_uniform(out,out),zeros(out),zeros(out,1)) 
-#RNNcell(in,out) = RNNcell(tanh,Flux.glorot_uniform(out,in),Flux.glorot_uniform(out,out),zeros(out),zeros(out,1)) 
-
-function (model::RNNcell{func,dense_,weights,biases})(h,x) where {func,dense_,weights,biases}
-	funct,dense,Wh,b,st = model.sgm, model.Wi, model.Wh, model.b, model.st
-	h = funct.(Wh*h .+ findmax(dense(x),dims=1)[1] .+ b)
-	return h,h	
-end
-
-#@functor RNNcell
-
-network = Chain(Dense(784,30,relu),Dense(30,10),softmax) 
-
-#m = RNNcell(784,1,network)
-#new_model = Flux.RNN(m,m.st)
-
-Flux.RNN(a...; ka...) = Flux.Recur(RNNcell(a...; ka...))
-Flux.Recur(m::RNNcell) = Flux.Recur(m,m.st)
-=#
-
-
-struct RNNCell{F,network,A,V,S}
+struct RNNcell{F,network,A,V,S}
   s::F
   Wi::network
   Wh::A
@@ -46,29 +16,25 @@ struct RNNCell{F,network,A,V,S}
   state0::S
 end
 
-RNNCell(in::Integer, out::Integer,network, s=tanh, init=Flux.glorot_uniform, initb=zeros, init_state=zeros) = 
-  RNNCell(s, network, init(out, out), initb(out), init_state(out,1))
+RNNcell(in::Integer, out::Integer,network, s=tanh, init=Flux.glorot_uniform, initb=zeros, init_state=zeros) = 
+  RNNcell(s, network, init(out, out), initb(out), init_state(out,1))
 
-function (m::RNNCell{F,network,A,V,<:AbstractMatrix{T}})(h, x) where {F,network,A,V,T}
+function (m::RNNcell)(h, x) 
   s, net, Wh, b = m.s, m.Wi, m.Wh, m.b
-  print("ok1")
-  a = map(x->x[1]-1,findmax(net(x),dims=1)[2])
-  print("ok2")
-  h = s.(a .+ Wh*h .+ b)
-  print("ok3")
+  h = s.(findmax(net(x))[2]-1 .+ Wh*h .+ b)
   #sz = size(x)
   return h, h #reshape(h, :, sz[2:end]...)
 end
 
-Flux.@functor RNNCell
+Flux.@functor RNNcell
 network = Chain(Dense(784,30,relu),Dense(30,10),softmax)
-RNN(a...; ka...) = Recur(RNNCell(a...; ka...))
-Recur(m::RNNCell) = Recur(m, m.state0)
-rnn_model = Flux.RNN(784,1,network)
+RNN(a...; ka...) = Recur(RNNcell(a...; ka...))
+Recur(m::RNNcell) = Flux.Recur(m, m.state0)
+rnn_model = RNN(784,1,network)
 
-"""
+#=
 	End of RNN implementation
-"""
+=#
 
 max_batch_size = 10
 
@@ -116,7 +82,10 @@ v_data = [random_v_batch(rand(2:max_batch_size)) for _ in 1:1000]
 
 function evaluation(x)
 	Flux.reset!(rnn_model)
-	output = rnn_model(x)[end]
+	output = 0
+	for i in 1:size(x)[2]
+		output = rnn_model(x[:,i])
+	end
 	return output
 end
 
@@ -133,9 +102,9 @@ evalcb() = @show(
 #error("ok")
 Flux.@epochs epochs Flux.train!(loss,pc,data,opt,cb=Flux.throttle(evalcb,5))
 
-k_error = []
-for j in v_data
-	out = loss(j...)
-	append!(k_error,out)
-end
+#k_error = []
+#for j in v_data
+#	out = loss(j...)
+#	append!(k_error,out)
+#end
 
